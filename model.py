@@ -9,7 +9,7 @@ from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 from utils import * 
 
 
-def critic(z_dim=100, input_var=None, num_units=512, batch_size=64):
+def critic(z_dim=100, input_var=None, num_units=1024, batch_size=64):
     encoder = []
     lrelu = lasagne.nonlinearities.LeakyRectify(0.2)
 
@@ -45,7 +45,7 @@ def critic(z_dim=100, input_var=None, num_units=512, batch_size=64):
 
     encoder.append(ll.FlattenLayer(encoder[-1]))
 
-    encoder.append(ll.DenseLayer(encoder[-1], num_units=z_dim, nonlinearity=None))
+    encoder.append(ll.DenseLayer(encoder[-1], num_units=1, nonlinearity=None))
         
 
     for layer in encoder : 

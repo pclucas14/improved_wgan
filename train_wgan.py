@@ -73,11 +73,12 @@ updates_critic = optimizer_factory(params['optimizer'], critic_grads, critic_par
 
 # function outputs
 fn_output = OrderedDict()
-fn_output['gen_loss'] = gen_loss
-fn_output['critic_loss'] = critic_loss
-# fn_output['gradient_norm'] = slopes
-# fn_output['critic_grad'] = critic_grads_norm
+#fn_output['gen_loss'] = gen_loss
+#fn_output['critic_loss'] = critic_loss
+fn_output['fake_out'] = fake_out.mean()
+fn_output['real_out'] = real_out.mean()
 fn_output['gen_grad'] = gen_grads_norm
+fn_output['critic_grad'] = critic_grads_norm
 
 eh.add_model('gen', generator_layers, fn_output)
 eh.add_model('cri', critic_layers, fn_output)
