@@ -9,22 +9,23 @@ params['batch_size'] = 64
 params['tensor_shape'] = (64, 3, 64, 64)
 params['initial_eta'] = 1e-4
 params['lambda'] = 10
-params['load_weights'] = None#(9,200) #(12, 1000)#None# version/epoch tupple pair
+params['load_weights'] = None # version/epoch tupple pair
 params['optimizer'] = 'adam'
 params['image_prepro'] = 'DCGAN' # (/250.; -0.5; /0.5) taken from DCGAN repo.
-params['loss_comments'] = 'improved wgan with gradient penalty'
+params['loss_comments'] = 'wgan with gradient penalty'
+params['num_units'] = 128 # 64 is default
 params['epoch_iter'] = 25
 params['gen_iter'] = 1
-params['critic_iter'] = 1
+params['critic_iter'] = 5
 params['test'] = False
 
-generator_layers = generator(batch_size=params['batch_size'])
-critic_layers = critic(batch_size=params['batch_size'])
+generator_layers = generator(batch_size=params['batch_size'], num_units=params['num_units'])
+critic_layers = critic(batch_size=params['batch_size'], num_units=params['num_units'])
 generator = generator_layers[-1]
 critic = critic_layers[-1]
 
 dh = DataHandler(tensor_shape=params['tensor_shape'])
-eh = ExpHandler(params, test=params['test'])
+eh = ExpHandler(params, test=params['test'], dump_freq=1000)
 
 # placeholders 
 images = T.tensor4('images from dataset')
@@ -41,9 +42,16 @@ critic_params = ll.get_all_params(critic, trainable=True)
 fake_images = ll.get_output(generator)
 real_out = ll.get_output(critic, inputs=images)
 fake_out = ll.get_output(critic, inputs=fake_images)
-'''
+
 gen_loss = -fake_out.mean()
 critic_loss = fake_out.mean() - real_out.mean()
+
+# sanity check with LSGAN
+'''
+gen_loss = lasagne.objectives.squared_error(fake_out, 1).mean()
+critic_loss = (lasagne.objectives.squared_error(real_out, 1) + 
+               lasagne.objectives.squared_error(fake_out, 0)).mean()
+'''
 
 differences = fake_images - images
 interpolates = images + (alpha * differences)
@@ -54,13 +62,6 @@ gradients = theano.grad(interpolates_out.sum(), wrt=interpolates)
 slopes = T.sqrt(T.sum((gradients ** 2)))
 gradient_penalty = ((slopes-1.)**2).mean()
 critic_loss += params['lambda'] * gradient_penalty
-'''
-
-gen_loss = lasagne.objectives.squared_error(fake_out, 1).mean()
-critic_loss = (lasagne.objectives.squared_error(real_out, 1) + 
-               lasagne.objectives.squared_error(fake_out, 0)).mean()
-
-
 
 gen_grads = theano.grad(gen_loss, wrt=gen_params)
 critic_grads = theano.grad(critic_loss, wrt=critic_params)
@@ -73,8 +74,9 @@ updates_critic = optimizer_factory(params['optimizer'], critic_grads, critic_par
 
 # function outputs
 fn_output = OrderedDict()
-#fn_output['gen_loss'] = gen_loss
-#fn_output['critic_loss'] = critic_loss
+fn_output['gen_loss'] = gen_loss
+fn_output['critic_loss'] = critic_loss
+fn_output['grad_norm'] = slopes
 fn_output['fake_out'] = fake_out.mean()
 fn_output['real_out'] = real_out.mean()
 fn_output['gen_grad'] = gen_grads_norm
@@ -115,9 +117,6 @@ for epoch in range(3000000):
             batch_no = dh.get_next_batch_no()
             model_out = train_gen(batch_no)
 
-            # import pdb; pdb.set_trace()
-            gen_err += np.array(model_out)
-            eh.record('gen', np.array(model_out))
 
         for _ in range(params['critic_iter']):
             batch_no = dh.get_next_batch_no()
